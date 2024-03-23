@@ -1,0 +1,74 @@
+{
+  "name": "@mep-agency/web3-auth",
+  "version": "1.0.0-alpha1",
+  "private": false,
+  "description": "A set of tools for decentralized web3 authentication",
+  "author": "Marco Lipparini <developer@liarco.net>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mep-agency/web3-auth.git"
+  },
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "default": "./dist/cjs/index.js"
+    },
+    "./back-end": {
+      "types": "./dist/esm/back-end.d.ts",
+      "import": "./dist/esm/back-end.js",
+      "default": "./dist/cjs/back-end.js"
+    },
+    "./front-end": {
+      "types": "./dist/esm/front-end.d.ts",
+      "import": "./dist/esm/front-end.js",
+      "default": "./dist/cjs/front-end.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "prepack": "yarn build",
+    "build": "rm -rf ./dist && rollup -c",
+    "watch": "rm -rf ./dist && rollup -cw",
+    "format": "prettier --write \"**/*.{ts,tsx,md,scss,css,js,jsx}\"",
+    "lint": "prettier --check \"**/*.{ts,tsx,md,scss,css,js,jsx}\""
+  },
+  "devDependencies": {
+    "@mep-agency/next-http": "^1.0.0-alpha2",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@tanstack/react-query": "^5.28.6",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "autoprefixer": "^10.4.18",
+    "next": "^14.1.4",
+    "node-sass": "^9.0.0",
+    "postcss": "^8.4.35",
+    "prettier": "^2.8.8",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rollup": "^4.12.1",
+    "rollup-plugin-postcss": "^4.0.2",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "typescript": "^5.4.2",
+    "viem": "^2.8.16",
+    "wagmi": "^2.5.12"
+  },
+  "peerDependencies": {
+    "@mep-agency/next-http": "^1.0.0-alpha2",
+    "@tanstack/react-query": "^5.28.6",
+    "next": "^14.1.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "viem": "^2.8.16",
+    "wagmi": "^2.5.12"
+  }
+}
