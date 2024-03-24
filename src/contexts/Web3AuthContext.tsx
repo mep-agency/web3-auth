@@ -42,7 +42,7 @@ const storeAuthorizedAddress = (address: Address) => {
 };
 
 interface Web3AuthContext {
-  signJwtToken: (expiration: number) => Promise<void>;
+  signJwtToken: (expiration: number, scopes: [string, ...string[]]) => Promise<void>;
   clearJwtToken: () => void;
   activeJwtToken: string | null;
   authorizedAddress?: Address;
@@ -79,7 +79,7 @@ export function Web3AuthProvider({
   }, [jwtTokenStorageKeySuffix, walletClient]);
 
   const signJwtToken = useCallback(
-    async (expiration: number) => {
+    async (expiration: number, scopes: [string, ...string[]]) => {
       if (localStorageKey === null || walletClient === undefined) {
         throw new Web3AuthError('Failed creating authentication token. Wallet not ready yet!');
       }
@@ -88,6 +88,7 @@ export function Web3AuthProvider({
         message: signatureMessage,
         address: authorizedAddress ?? walletClient.account.address,
         signer: walletClient,
+        scopes,
         expiration,
       });
 
@@ -123,7 +124,7 @@ export function Web3AuthProvider({
           maxAllowedExpiration: jwtTokenMaxValidity === undefined ? undefined : Date.now() + jwtTokenMaxValidity,
         });
       } catch (e: any) {
-        if (e.codes?.includes(W3A_ERROR_JWT_DECODING)) {
+        if (e.codes?.includes(W3A_ERROR_JWT_DECODING) !== true) {
           throw e;
         }
       }
