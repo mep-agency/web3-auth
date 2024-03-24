@@ -4,14 +4,11 @@ import { Hex, PublicClient } from 'viem';
 import { JwtVerificationResult, verifyJwtToken } from '../lib/jwt';
 import { W3A_ERROR_JWT_DECODING } from '../lib/errors/JwtDecodingError';
 
-export const DEFAULT_HTTP_WEB3_AUTH_HEADER = 'x-web3-auth';
-
 type GeneratorParams = {
   signatureMessage: string;
   web3Client: PublicClient;
   delegateXyzRights?: Hex;
   jwtTokenMaxValidity?: number;
-  httpAuthHeader?: string;
 };
 
 export const createWeb3UserFetcher = ({
@@ -19,12 +16,21 @@ export const createWeb3UserFetcher = ({
   web3Client,
   delegateXyzRights,
   jwtTokenMaxValidity,
-  httpAuthHeader = DEFAULT_HTTP_WEB3_AUTH_HEADER,
 }: GeneratorParams): UserFetcher<JwtVerificationResult> => {
   return async ({ request }) => {
-    const token = request.headers.get(httpAuthHeader);
+    const authorizationHeader = request.headers.get('Authorization');
 
-    if (token === null) {
+    if (authorizationHeader === null || authorizationHeader.length === 0) {
+      throw new HandlerError({ title: 'No JWT token', status: 400 });
+    }
+
+    const [bearer, token] = authorizationHeader.split(' ');
+
+    if (bearer.toLocaleLowerCase() !== 'bearer') {
+      throw new HandlerError({ title: 'Invalid authorization header', status: 400 });
+    }
+
+    if (token === undefined || token.length === 0) {
       throw new HandlerError({ title: 'No JWT token', status: 400 });
     }
 
