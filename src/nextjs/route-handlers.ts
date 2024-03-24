@@ -43,7 +43,7 @@ export const createWeb3UserFetcher = ({
 
       return verificationResult;
     } catch (e: any) {
-      if (e.codes?.includes(W3A_ERROR_JWT_DECODING)) {
+      if (e.codes?.includes(W3A_ERROR_JWT_DECODING) === true) {
         throw new HandlerError({ title: e.message, status: 400 });
       }
 

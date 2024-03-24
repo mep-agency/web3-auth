@@ -1,4 +1,4 @@
-import { Account, Address, Hex, PublicClient, WalletClient, getAddress, isAddressEqual, zeroAddress } from 'viem';
+import { Account, Address, Hex, PublicClient, WalletClient, getAddress, isAddressEqual } from 'viem';
 
 import { verifySignatureWithDelegation } from './signatures';
 import { CacheController } from './jwt-cache';
@@ -33,6 +33,7 @@ export type AuthJwtPayload = {
   chainId: number;
   walletAddress: Address;
   signerAddress: Address;
+  scopes: [string, ...string[]];
   createdAt: number;
   exp: number;
 };
@@ -49,34 +50,40 @@ export type JwtVerificationResult = {
   walletAddress: Address;
   signerAddress: Address;
   isDelegated: boolean;
+  scopes: [string, ...string[]];
 } | null;
 
 const buildMessage = ({ message, payload }: { message: string; payload: AuthJwtPayload }) =>
-  `${message}\n\n[Auth Token Validity Info]\nStart: ${new Date(payload.createdAt).toUTCString()}\nEnd: ${new Date(
-    payload.exp,
-  ).toUTCString()}\nAddress: ${payload.walletAddress}\nSigner: ${payload.signerAddress}\nChain ID: ${payload.chainId}`;
+  `${message}\n\n[Auth Token Details]\nScopes:\n${payload.scopes.map((scope) => `  - ${scope}\n`).join('')}Start: ${new Date(
+    payload.createdAt,
+  ).toUTCString()}\nEnd: ${new Date(payload.exp).toUTCString()}\nAddress: ${payload.walletAddress}\nSigner: ${
+    payload.signerAddress
+  }\nChain ID: ${payload.chainId}`;
 
 const buildPayload = ({
   chainId,
   address,
   signer,
+  scopes,
   exp,
 }: {
   chainId: number;
   address: Address;
   signer: Address;
+  scopes: [string, ...string[]];
   exp: number;
 }): AuthJwtPayload => {
   const createdAt = Date.now();
 
   if (createdAt > exp) {
-    throw new Web3AuthError('Expiration timestamp must be in the future.');
+    throw new Web3AuthError('Expiration timestamp must be in the future');
   }
 
   return {
     chainId,
     walletAddress: getAddress(address),
     signerAddress: getAddress(signer),
+    scopes,
     createdAt,
     exp,
   };
@@ -98,21 +105,28 @@ export const createJwtToken = async ({
   message,
   address,
   signer,
+  scopes,
   expiration,
 }: {
   message: string;
   address: Address;
   signer: Signer;
+  scopes: [string, ...string[]];
   expiration: number;
 }): Promise<string> => {
   if (signer.account === undefined) {
-    throw new Web3AuthError('Invalid web3 client: an account is required in order to sign a token.');
+    throw new Web3AuthError('Invalid web3 client: an account is required in order to sign a token');
+  }
+
+  if (scopes.length < 1) {
+    throw new Web3AuthError('JWT tokens must have at least one scope');
   }
 
   const payload = buildPayload({
     chainId: await signer.getChainId(),
     address,
     signer: signer.account.address,
+    scopes,
     exp: expiration,
   });
   const signatureMessage = buildMessage({ message, payload });
@@ -149,6 +163,7 @@ export const verifyJwtToken = async ({
     walletAddress: payload.walletAddress,
     signerAddress: payload.signerAddress,
     isDelegated: !isAddressEqual(payload.walletAddress, payload.signerAddress),
+    scopes: payload.scopes,
   };
 
   // Check cache
@@ -171,19 +186,21 @@ export const verifyJwtToken = async ({
     return null;
   }
 
-  if (
-    !isAddressEqual(
-      (await verifySignatureWithDelegation({
-        walletAddress: payload.walletAddress,
-        signerAddress: payload.signerAddress,
-        message: buildMessage({ message, payload }),
-        signature,
-        web3Client,
-        delegateXyzRights,
-      })) ?? zeroAddress,
-      payload.walletAddress,
-    )
-  ) {
+  // Is there at least one scope?
+  if (payload.scopes.length < 1) {
+    return null;
+  }
+
+  const verifiedAddress = await verifySignatureWithDelegation({
+    walletAddress: payload.walletAddress,
+    signerAddress: payload.signerAddress,
+    message: buildMessage({ message, payload }),
+    signature,
+    web3Client,
+    delegateXyzRights,
+  });
+
+  if (verifiedAddress === null || !isAddressEqual(verifiedAddress, payload.walletAddress)) {
     return null;
   }
 
