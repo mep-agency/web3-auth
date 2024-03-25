@@ -1,25 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Address, Hex, isAddressEqual } from 'viem';
 import { usePublicClient, useWalletClient } from 'wagmi';
-import { useLocalStorage } from '@uidotdev/usehooks';
+import { useLocalStorage, useSessionStorage } from '@uidotdev/usehooks';
 
 import { JwtVerificationResult, createJwtToken, verifyJwtToken } from '../lib/jwt';
 import { W3A_ERROR_JWT_DECODING } from '../lib/errors/JwtDecodingError';
 import { Web3AuthError } from '../errors';
 
-const LOCAL_STORAGE_JWT_TOKENS_KEY_PREFIX = 'web3-auth.jwt-token.';
-const LOCAL_STORAGE_AUTHORIZED_ADDRESS_KEY_PREFIX = 'web3-auth.authorized-address.';
+const ENCRYPTED_TOKEN_KEY_PREFIX = 'web3-auth.encrypted-token.';
+const TOKEN_KEY_PREFIX = 'web3-auth.token.';
+const TOKEN_DATA_KEY_PREFIX = 'web3-auth.token-data.';
+const AUTHORIZED_ADDRESS_KEY_PREFIX = 'web3-auth.authorized-address.';
 
 type UseTokenParameters = {
   message: string;
-  scopes: [string, ...string[]];
-  storageKey?: string;
+  scopes: string[];
+  key: string;
+  persist?: boolean;
   authorizedAddressStorageKey?: string;
   delegateXyzRights?: Hex;
   jwtTokenMaxValidity?: number; // ms
   encryption?: {
-    encrypt: (token: string | null) => Promise<string | null> | string | null;
-    decrypt: (encryptedToken: string | null) => Promise<string | null> | string | null;
+    encrypt: (token: string) => Promise<string> | string;
+    decrypt: (encryptedToken: string) => Promise<string> | string;
   };
 };
 
@@ -31,29 +34,35 @@ const dummyEncryption: NonNullable<UseTokenParameters['encryption']> = {
 export const useWeb3AuthToken = ({
   message,
   scopes,
-  storageKey,
+  key,
+  persist = false,
   authorizedAddressStorageKey = 'default',
   delegateXyzRights,
   jwtTokenMaxValidity,
   encryption = dummyEncryption,
 }: UseTokenParameters) => {
   const [authorizedAddress, setAuthorizedAddress] = useLocalStorage<Address | null>(
-    LOCAL_STORAGE_AUTHORIZED_ADDRESS_KEY_PREFIX + authorizedAddressStorageKey,
+    AUTHORIZED_ADDRESS_KEY_PREFIX + authorizedAddressStorageKey,
     null,
   );
-  const [encryptedToken, saveEncryptedToken] =
-    storageKey === undefined
-      ? useState<string | null>(null)
-      : useLocalStorage<string | null>(LOCAL_STORAGE_JWT_TOKENS_KEY_PREFIX + storageKey, null);
-  const [token, setToken] = useState<string | null>(null);
-  const [tokenData, setTokenData] = useState<JwtVerificationResult | null>(null);
+  const [encryptedToken, setEncryptedToken] =
+    persist === true
+      ? useLocalStorage<string | null>(ENCRYPTED_TOKEN_KEY_PREFIX + key, null)
+      : useSessionStorage<string | null>(ENCRYPTED_TOKEN_KEY_PREFIX + key, null);
+  const [token, setToken] = useSessionStorage<string | undefined>(TOKEN_KEY_PREFIX + key, undefined);
+  const [tokenData, setTokenData] = useSessionStorage<JwtVerificationResult | undefined>(
+    TOKEN_DATA_KEY_PREFIX + key,
+    undefined,
+  );
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [isWaiting, setIsWaiting] = useState(false);
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
 
   const clear = useCallback(() => {
-    saveEncryptedToken(null);
-    setTokenData(null);
-  }, [saveEncryptedToken]);
+    setEncryptedToken(null);
+    setIsVerifying(false);
+  }, []);
 
   const sign = useCallback(
     async (expiration: number) => {
@@ -61,19 +70,27 @@ export const useWeb3AuthToken = ({
         throw new Web3AuthError('Failed creating authentication token. Wallet not ready yet!');
       }
 
-      const token = await createJwtToken({
-        message,
-        address: authorizedAddress ?? walletClient.account.address,
-        signer: walletClient,
-        scopes,
-        expiration,
-      });
+      setIsWaiting(true);
 
-      saveEncryptedToken(await encryption.encrypt(token));
+      try {
+        const token = await createJwtToken({
+          message,
+          address: authorizedAddress ?? walletClient.account.address,
+          signer: walletClient,
+          scopes,
+          expiration,
+        });
 
-      return token;
+        setEncryptedToken(await encryption.encrypt(token));
+
+        return token;
+      } catch (e) {
+        setIsWaiting(false);
+
+        throw e;
+      }
     },
-    [authorizedAddress, message, JSON.stringify(scopes), encryption.encrypt, saveEncryptedToken, walletClient],
+    [authorizedAddress, message, JSON.stringify(scopes), encryption.encrypt, walletClient],
   );
 
   useEffect(() => {
@@ -87,7 +104,7 @@ export const useWeb3AuthToken = ({
   useEffect(() => {
     (async () => {
       try {
-        setToken(await encryption.decrypt(encryptedToken));
+        setToken(encryptedToken !== null ? await encryption.decrypt(encryptedToken) : undefined);
       } catch (e) {
         clear();
       }
@@ -95,9 +112,17 @@ export const useWeb3AuthToken = ({
   }, [encryptedToken]);
 
   useEffect(() => {
-    if (authorizedAddress === null || token === null || publicClient === undefined) {
+    if (token === undefined) {
+      setTokenData(undefined);
+    }
+
+    if (authorizedAddress === null || token === undefined || publicClient === undefined) {
+      setIsVerifying(false);
+
       return;
     }
+
+    setIsVerifying(true);
 
     (async () => {
       let verificationResult = null;
@@ -125,12 +150,16 @@ export const useWeb3AuthToken = ({
       }
 
       setTokenData(verificationResult);
+      setIsVerifying(false);
     })();
   }, [authorizedAddress, token, publicClient]);
 
   return {
-    token,
-    tokenData,
+    token: token ?? null,
+    tokenData: tokenData ?? null,
+    isVerifying,
+    isWaiting,
+    isAuthenticated: tokenData?.walletAddress !== undefined,
     clear,
     sign,
     authorizedAddress,
