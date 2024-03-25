@@ -33,7 +33,7 @@ export type AuthJwtPayload = {
   chainId: number;
   walletAddress: Address;
   signerAddress: Address;
-  scopes: [string, ...string[]];
+  scopes: string[];
   createdAt: number;
   exp: number;
 };
@@ -50,7 +50,7 @@ export type JwtVerificationResult = {
   walletAddress: Address;
   signerAddress: Address;
   isDelegated: boolean;
-  scopes: [string, ...string[]];
+  scopes: string[];
 } | null;
 
 const buildMessage = ({ message, payload }: { message: string; payload: AuthJwtPayload }) =>
@@ -70,7 +70,7 @@ const buildPayload = ({
   chainId: number;
   address: Address;
   signer: Address;
-  scopes: [string, ...string[]];
+  scopes: string[];
   exp: number;
 }): AuthJwtPayload => {
   const createdAt = Date.now();
@@ -111,7 +111,7 @@ export const createJwtToken = async ({
   message: string;
   address: Address;
   signer: Signer;
-  scopes: [string, ...string[]];
+  scopes: string[];
   expiration: number;
 }): Promise<string> => {
   if (signer.account === undefined) {
@@ -140,7 +140,7 @@ export const verifyJwtToken = async ({
   message,
   token,
   web3Client,
-  scopes = [],
+  scopes,
   strictScopes = false,
   delegateXyzRights,
   maxAllowedExpiration,
@@ -158,6 +158,10 @@ export const verifyJwtToken = async ({
   const now = Date.now();
   const { header, payload, signature } = decodeJwt(token);
 
+  if (scopes !== undefined && scopes.length < 1) {
+    throw new Web3AuthError('The scope array cannot be empty');
+  }
+
   // Is this a valid JWT token?
   if (header.alg !== JWT_AUTH_TOKEN_HEADER.alg || header.typ !== JWT_AUTH_TOKEN_HEADER.typ) {
     return null;
@@ -171,14 +175,16 @@ export const verifyJwtToken = async ({
   };
 
   // Scopes cannot be cached so we check them first...
-  if (strictScopes) {
-    if (JSON.stringify(scopes) !== JSON.stringify(payload.scopes)) {
-      return null;
-    }
-  } else {
-    for (const requiredScope of scopes) {
-      if (!payload.scopes.includes(requiredScope)) {
+  if (scopes !== undefined) {
+    if (strictScopes) {
+      if (JSON.stringify(scopes) !== JSON.stringify(payload.scopes)) {
         return null;
+      }
+    } else {
+      for (const requiredScope of scopes) {
+        if (!payload.scopes.includes(requiredScope)) {
+          return null;
+        }
       }
     }
   }
