@@ -7,6 +7,8 @@ import { W3A_ERROR_JWT_DECODING } from '../lib/errors/JwtDecodingError';
 type GeneratorParams = {
   signatureMessage: string;
   web3Client: PublicClient;
+  scopes?: string[];
+  strictScopes?: boolean;
   delegateXyzRights?: Hex;
   jwtTokenMaxValidity?: number;
 };
@@ -14,6 +16,8 @@ type GeneratorParams = {
 export const createWeb3UserFetcher = ({
   signatureMessage,
   web3Client,
+  scopes,
+  strictScopes,
   delegateXyzRights,
   jwtTokenMaxValidity,
 }: GeneratorParams): UserFetcher<JwtVerificationResult> => {
@@ -39,6 +43,8 @@ export const createWeb3UserFetcher = ({
         message: signatureMessage,
         token,
         web3Client,
+        scopes,
+        strictScopes,
         delegateXyzRights,
         maxAllowedExpiration: jwtTokenMaxValidity === undefined ? undefined : Date.now() + jwtTokenMaxValidity,
       });

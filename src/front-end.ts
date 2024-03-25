@@ -1,2 +1,2 @@
 export * from './index';
-export * from './contexts/Web3AuthContext';
+export * from './hooks/useWeb3AuthToken';

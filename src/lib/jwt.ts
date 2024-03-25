@@ -140,6 +140,8 @@ export const verifyJwtToken = async ({
   message,
   token,
   web3Client,
+  scopes = [],
+  strictScopes = false,
   delegateXyzRights,
   maxAllowedExpiration,
   cacheController,
@@ -147,6 +149,8 @@ export const verifyJwtToken = async ({
   message: string;
   token: string;
   web3Client: PublicClient;
+  scopes?: string[];
+  strictScopes?: boolean;
   delegateXyzRights?: Hex;
   maxAllowedExpiration?: number;
   cacheController?: CacheController;
@@ -165,6 +169,19 @@ export const verifyJwtToken = async ({
     isDelegated: !isAddressEqual(payload.walletAddress, payload.signerAddress),
     scopes: payload.scopes,
   };
+
+  // Scopes cannot be cached so we check them first...
+  if (strictScopes) {
+    if (JSON.stringify(scopes) !== JSON.stringify(payload.scopes)) {
+      return null;
+    }
+  } else {
+    for (const requiredScope of scopes) {
+      if (!payload.scopes.includes(requiredScope)) {
+        return null;
+      }
+    }
+  }
 
   // Check cache
   if (cacheController !== undefined && (await cacheController.isCachedAndStillValid(token))) {
