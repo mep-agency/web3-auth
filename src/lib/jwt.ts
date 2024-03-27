@@ -54,11 +54,11 @@ export type JwtVerificationResult = {
 } | null;
 
 const buildMessage = ({ message, payload }: { message: string; payload: AuthJwtPayload }) =>
-  `${message}\n\n[Auth Token Details]\nScopes:\n${payload.scopes.map((scope) => `  - ${scope}\n`).join('')}Start: ${new Date(
+  `${message}\n\n[Auth Token Details]\nChain ID: ${payload.chainId}\nScopes:\n${payload.scopes
+    .map((scope) => `  - ${scope}\n`)
+    .join('')}\nAddress: ${payload.walletAddress}\nSigner: ${payload.signerAddress}\n\nStart: ${new Date(
     payload.createdAt,
-  ).toUTCString()}\nEnd: ${new Date(payload.exp).toUTCString()}\nAddress: ${payload.walletAddress}\nSigner: ${
-    payload.signerAddress
-  }\nChain ID: ${payload.chainId}`;
+  ).toUTCString()}\nEnd: ${new Date(payload.exp).toUTCString()}`;
 
 const buildPayload = ({
   chainId,
