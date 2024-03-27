@@ -12,10 +12,10 @@ const TOKEN_KEY_PREFIX = 'web3-auth.token.';
 const TOKEN_DATA_KEY_PREFIX = 'web3-auth.token-data.';
 const AUTHORIZED_ADDRESS_KEY_PREFIX = 'web3-auth.authorized-address.';
 
-type UseTokenParameters = {
+type UseWeb3AuthTokenParameters = {
   message: string;
   scopes: string[];
-  key: string;
+  key?: string;
   persist?: boolean;
   authorizedAddressStorageKey?: string;
   delegateXyzRights?: Hex;
@@ -26,7 +26,7 @@ type UseTokenParameters = {
   };
 };
 
-const dummyEncryption: NonNullable<UseTokenParameters['encryption']> = {
+const dummyEncryption: NonNullable<UseWeb3AuthTokenParameters['encryption']> = {
   encrypt: (token) => token,
   decrypt: (encryptedToken) => encryptedToken,
 };
@@ -34,13 +34,13 @@ const dummyEncryption: NonNullable<UseTokenParameters['encryption']> = {
 export const useWeb3AuthToken = ({
   message,
   scopes,
-  key,
+  key = 'default',
   persist = false,
   authorizedAddressStorageKey = 'default',
   delegateXyzRights,
   jwtTokenMaxValidity,
   encryption = dummyEncryption,
-}: UseTokenParameters) => {
+}: UseWeb3AuthTokenParameters) => {
   const [authorizedAddress, setAuthorizedAddress] = useLocalStorage<Address | null>(
     AUTHORIZED_ADDRESS_KEY_PREFIX + authorizedAddressStorageKey,
     null,
