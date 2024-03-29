@@ -4,13 +4,13 @@ import { useAccountEffect } from 'wagmi';
 
 import { useWeb3AuthToken } from '../hooks/useWeb3AuthToken';
 
-type Web3RouteGuardProps = {
+type Web3RouteGuardProps = PropsWithChildren<{
   loginRoute: string;
   loginSearchParams?: string[][];
   token: Parameters<typeof useWeb3AuthToken>[0];
   fallback?: ReactNode | undefined;
   logoutOnDisconnect?: boolean;
-};
+}>;
 
 export const Web3RouteGuard = ({
   loginRoute,
@@ -19,7 +19,7 @@ export const Web3RouteGuard = ({
   fallback,
   logoutOnDisconnect = false,
   children,
-}: PropsWithChildren<Web3RouteGuardProps>) => {
+}: Web3RouteGuardProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
